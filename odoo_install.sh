@@ -441,7 +441,8 @@ else
 fi
 
 echo -e "\n---- Starting Odoo Service ----\n"
-sudo su root -c "/etc/init.d/$OE_CONFIG start"
+sudo service $OE_CONFIG start
+
 echo "-----------------------------------------------------------"
 echo "Done! The Odoo server is up and running. Specifications:"
 echo "Port: $OE_PORT"
