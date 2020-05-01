@@ -282,29 +282,12 @@ if [ $PROXY_MODE != "PROXY_NONE" ]; then
      server                                   127.0.0.1:$LONGPOLLING_PORT;
   }
   
+  server {
+     listen 80;
+     server_name "$WEBSITE_NAME";
   $(
-    if [ "$PROXY_MODE" = "PROXY_HTTP" ]; then
-      echo "# PROXY MODE USES HTTP"
-      echo "  server {"
-      echo "     listen 80;"
-      echo "     server_name "$WEBSITE_NAME";"
-    fi
-
     if [ "$PROXY_MODE" = "PROXY_LETSENCRYPT" ]; then
-      echo "# PROXY MODE USES LETSENCRYPT"
-      echo "  server {"
-      echo "     listen 80;"
-      echo "     server_name "$WEBSITE_NAME";"
-      echo "  "
-      echo "     rewrite ^(.*) https://\$host\$1 permanent;"
-      echo "  }"
-      echo "  "
-      echo "  server {"
-      echo "     listen 443 ssl http2;"
-      echo "     server_name "$WEBSITE_NAME";"
-      echo "  "
-      echo "     include                                  snippets/ssl.conf;"
-      echo "     include                                  snippets/letsencrypt.conf;"
+       echo "include                                  snippets/letsencrypt.conf;"
     fi
   )
   
@@ -315,6 +298,9 @@ if [ $PROXY_MODE != "PROXY_NONE" ]; then
      proxy_set_header X-Real-IP               \$remote_addr;
      proxy_set_header X-Client-IP             \$remote_addr;
      proxy_set_header HTTP_X_FORWARDED_HOST   \$remote_addr;
+     add_header X-Frame-Options               SAMEORIGIN;
+     add_header X-Content-Type-Options        nosniff;
+     add_header X-XSS-Protection              "1; mode=block";
      
      # odoo log files
      access_log                               /var/log/nginx/$OE_USER-access.log;
@@ -379,7 +365,7 @@ EOF
   sudo service nginx reload
   fi
   sudo su root -c "printf 'proxy_mode = True\n' >> /etc/${OE_CONFIG}.conf"
-  echo -e "\n---- Done! The Nginx server is up and running on "$PROXY_MODE" ----\n"
+  echo -e "\n---- Done! The Nginx server is up and running on ${PROXY_MODE} ----\n"
   echo -e "\n---- Configuration can be found at /etc/nginx/sites-available/odoo ----\n"
 fi
 
@@ -418,9 +404,6 @@ resolver                                       8.8.8.8 8.8.4.4 valid=300s;
 resolver_timeout                               30s;
 
 add_header Strict-Transport-Security           "max-age=15768000; includeSubdomains; preload" always;
-add_header X-Frame-Options                     SAMEORIGIN;
-add_header X-Content-Type-Options              nosniff;
-add_header X-XSS-Protection                    "1; mode=block";
 EOF
 
   cat <<EOF >/etc/nginx/snippets/letsencrypt.conf
@@ -434,13 +417,25 @@ EOF
 
   echo -e "\n---- Generating and installing SSL certificates ----\n"
   sudo certbot --nginx -d $WEBSITE_NAME --noninteractive --agree-tos --email $ADMIN_EMAIL --redirect
+
+  echo -e "\n---- Finish to update file /etc/nginx/sites-enabled/odoo ----\n"
+  sudo sed -i 's/# managed by Certbot//g' /etc/nginx/sites-enabled/odoo
+  sudo sed -i 's/listen 443 ssl;/listen 443 ssl http2;/g' /etc/nginx/sites-enabled/odoo
+  sudo sed -i 's/include \/etc\/letsencrypt\/options-ssl-nginx.conf;/include \/etc\/nginx\/snippets\/ssl.conf;/g' /etc/nginx/sites-enabled/odoo
+  sudo sed -i 's/ssl_dhparam \/etc\/letsencrypt\/ssl-dhparams.pem;//g' /etc/nginx/sites-enabled/odoo
+  
+  echo -e "\n---- Remove file /etc/letsencrypt/options-ssl-nginx.conf ----\n"
+  sudo rm -f /etc/letsencrypt/options-ssl-nginx.conf
+
   sudo service nginx reload
+
+  echo -e "\n---- Testing automatic certificates renewal ----\n"
+  sudo certbot renew --dry-run
 
   echo -e "\n---- SSL/HTTPS is enabled! ----\n"
   echo -e "\n---- Updating cron job to renew certificate ----\n"
   sudo sed -i 's/43200/3600/g' /etc/cron.d/certbot
   sudo sed -i 's/-q renew/-q renew --renew-hook "systemctl reload nginx"/g' /etc/cron.d/certbot
-
 else
   echo -e "\n---- SSL/HTTPS isn't enabled due to choice of the user or because of a misconfiguration! ----\n"
 fi
