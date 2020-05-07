@@ -19,6 +19,24 @@ OE_HOME="/$OE_USER"
 OE_HOME_EXT="/$OE_USER/${OE_USER}-server"
 OE_CONFIG="${OE_USER}-server"
 
+CRON_WORKERS="2"
+
+LIGHT_WORKER_RATIO="80"            # EXPRESSED IN PERCENTAGE
+LIGHT_WORKER_RAM_ESTIMATION="150"  # EXPRESSED IN MB
+HEAVY_WORKER_RATIO="20"            # EXPRESSED IN PERCENTAGE
+HEAVY_WORKER_RAM_ESTIMATION="1024" # EXPRESSED IN MB
+HARD_SOFT_FACTOR="125"             # EXPRESSED IN PERCENTAGE
+
+PROCESSOR_COUNT=$(grep -c ^processor /proc/cpuinfo)
+WORKER_CALC=$(echo "$PROCESSOR_COUNT * 2 + 1" | bc)
+LIGHT_RAM=$(echo "scale=0; $LIGHT_WORKER_RATIO * $LIGHT_WORKER_RAM_ESTIMATION / 100" | bc)
+HEAVY_RAM=$(echo "scale=0; $HEAVY_WORKER_RATIO * $HEAVY_WORKER_RAM_ESTIMATION / 100" | bc)
+RAM_MIX=$(echo "($LIGHT_RAM + $HEAVY_RAM)" | bc)
+
+# Needed RAM = workers * ( (light_worker_ratio * light_worker_ram_estimation) + (heavy_worker_ratio * heavy_worker_ram_estimation) )
+MEMORY_HARD=$(echo "scale=0; 2 * $PROCESSOR_COUNT * $RAM_MIX * 1024 * 1024 * $HARD_SOFT_FACTOR / 100" | bc)
+MEMORY_SOFT=$(echo "scale=0; 2 * $PROCESSOR_COUNT * $RAM_MIX * 1024 * 1024" | bc)
+
 # Choose the Odoo version which you want to install. For example: 13.0, 12.0, 11.0 or saas-18. When using 'master' the master version will be installed.
 # IMPORTANT! This script contains extra libraries that are specifically needed for Odoo 13.0
 OE_VERSION="13.0"
@@ -44,6 +62,14 @@ WEBSITE_NAME="_"
 # Provide Email to register ssl certificate
 ADMIN_EMAIL="odoo@example.com"
 
+# Set the PostgreSQL configuration file location you want to setup
+# Please note that the end of the file has the recommended settings from: https://pgtune.leopard.in.ua
+NEW_POSTGRES_CONF=sample_postgresql.conf
+# This is the file for the default configuration of PostgreSQL v12
+OLD_POSTGRES_CONF=/etc/postgresql/12/main/postgresql.conf
+# This is the file name for the backup of the default configuration of Postgres v12
+BAK_POSTGRES_CONF=/etc/postgresql/12/main/postgresql.backup
+
 ##
 ## WKHTMLTOPDF download links
 ## === Ubuntu Trusty x64 & x32 === (for other distributions please replace these two links,
@@ -51,8 +77,8 @@ ADMIN_EMAIL="odoo@example.com"
 ## https://github.com/odoo/odoo/wiki/Wkhtmltopdf ):
 ## https://www.odoo.com/documentation/12.0/setup/install.html#debian-ubuntu
 
-WKHTMLTOX_X64=https://github.com/wkhtmltopdf/wkhtmltopdf/releases/download/0.12.5/wkhtmltox_0.12.5-1.trusty_amd64.deb
-WKHTMLTOX_X32=https://github.com/wkhtmltopdf/wkhtmltopdf/releases/download/0.12.5/wkhtmltox_0.12.5-1.trusty_i386.deb
+WKHTMLTOX_X64=https://github.com/wkhtmltopdf/wkhtmltopdf/releases/download/0.12.5/wkhtmltox_0.12.5-1.bionic_amd64.deb
+WKHTMLTOX_X32=https://github.com/wkhtmltopdf/wkhtmltopdf/releases/download/0.12.5/wkhtmltox_0.12.5-1.bionic_i386.deb
 
 #--------------------------------------------------
 # Update Server
@@ -60,8 +86,6 @@ WKHTMLTOX_X32=https://github.com/wkhtmltopdf/wkhtmltopdf/releases/download/0.12.
 echo -e "\n---- Update Server ----\n"
 # universe package is for Ubuntu 18.x
 sudo add-apt-repository universe
-# libpng12-0 dependency for wkhtmltopdf
-sudo add-apt-repository "deb http://mirrors.kernel.org/ubuntu/ xenial main"
 sudo apt-get update
 sudo apt-get upgrade -y
 
@@ -69,16 +93,39 @@ sudo apt-get upgrade -y
 # Install PostgreSQL Server
 #--------------------------------------------------
 echo -e "\n---- Install PostgreSQL Server ----\n"
-sudo apt-get install postgresql postgresql-server-dev-all -y
+sudo apt-get install curl ca-certificates gnupg -y
+curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+sudo apt-get update
+sudo apt-get install postgresql-12 postgresql-contrib-12 postgresql-server-dev-12 -y
 
 echo -e "\n---- Creating the ODOO PostgreSQL User ----\n"
 sudo su - postgres -c "createuser -s $OE_USER" 2>/dev/null || true
 
 #--------------------------------------------------
+# Replace PostgreSQL Configuration
+#--------------------------------------------------
+echo -e "\n--- PostgreSQL configuration ----\n"
+if [ -f "$NEW_POSTGRES_CONF" ]; then
+  echo "\n--- The file $NEW_POSTGRES_CONF exists! Proceeding to replace PostgreSQL default configuration ----\n"
+  sudo service postgresql stop
+  sudo cp $OLD_POSTGRES_CONF $BAK_POSTGRES_CONF
+  sudo chown root:root $OLD_POSTGRES_CONF
+  sudo chmod u=rw,g=rw,o=rw $OLD_POSTGRES_CONF
+  sudo cat /dev/null >$OLD_POSTGRES_CONF
+  sudo cat $NEW_POSTGRES_CONF >$OLD_POSTGRES_CONF
+  sudo chown postgres:postgres $OLD_POSTGRES_CONF
+  sudo chmod u=rw,g=r,o=r $OLD_POSTGRES_CONF
+  sudo service postgresql start
+else
+  echo "The file $NEW_POSTGRES_CONF does not exist! PostgreSQL will run with the default configuration"
+fi
+
+#--------------------------------------------------
 # Install Dependencies
 #--------------------------------------------------
 echo -e "\n--- Installing Python 3 + pip3 ----\n"
-sudo apt-get install git python3 python3-pip build-essential wget python3-dev python3-venv python3-wheel libxslt-dev libzip-dev libldap2-dev libsasl2-dev python3-setuptools node-less libpng12-0 gdebi-core -y
+sudo apt-get install git python3 python3-pip build-essential wget python3-dev python3-venv python3-wheel libxslt-dev libzip-dev libldap2-dev libpng-dev libsasl2-dev python3-setuptools node-less gdebi-core xz-utils fontconfig libfreetype6 libx11-6 libxext6 libxrender1 xfonts-75dpi libxml2-dev -y
 
 echo -e "\n---- Install python packages/requirements ----\n"
 sudo -H pip3 install -r https://github.com/odoo/odoo/raw/${OE_VERSION}/requirements.txt
@@ -163,21 +210,33 @@ if [ $GENERATE_RANDOM_PASSWORD = "True" ]; then
   OE_SUPERADMIN=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 16 | head -n 1)
 fi
 
-sudo su root -c "printf 'admin_passwd = ${OE_SUPERADMIN}\n' >> /etc/${OE_CONFIG}.conf"
+sudo su root -c "printf 'admin_passwd            = ${OE_SUPERADMIN}\n' >> /etc/${OE_CONFIG}.conf"
 
 if [ $OE_VERSION \> "11.0" ]; then
-  sudo su root -c "printf 'http_port = ${OE_PORT}\n' >> /etc/${OE_CONFIG}.conf"
+  sudo su root -c "printf 'http_port               = ${OE_PORT}\n' >> /etc/${OE_CONFIG}.conf"
 else
-  sudo su root -c "printf 'xmlrpc_port = ${OE_PORT}\n' >> /etc/${OE_CONFIG}.conf"
+  sudo su root -c "printf 'xmlrpc_port             = ${OE_PORT}\n' >> /etc/${OE_CONFIG}.conf"
 fi
 
-sudo su root -c "printf 'logfile = /var/log/${OE_USER}/${OE_CONFIG}.log\n' >> /etc/${OE_CONFIG}.conf"
+sudo su root -c "printf 'logfile                 = /var/log/${OE_USER}/${OE_CONFIG}.log\n' >> /etc/${OE_CONFIG}.conf"
 
 if [ $IS_ENTERPRISE = "True" ]; then
-  sudo su root -c "printf 'addons_path=${OE_HOME}/enterprise/addons,${OE_HOME_EXT}/addons\n' >> /etc/${OE_CONFIG}.conf"
+  sudo su root -c "printf 'addons_path             = ${OE_HOME}/enterprise/addons,${OE_HOME_EXT}/addons\n' >> /etc/${OE_CONFIG}.conf"
 else
-  sudo su root -c "printf 'addons_path=${OE_HOME_EXT}/addons,${OE_HOME}/custom/addons\n' >> /etc/${OE_CONFIG}.conf"
+  sudo su root -c "printf 'addons_path             = ${OE_HOME_EXT}/addons,${OE_HOME}/custom/addons\n' >> /etc/${OE_CONFIG}.conf"
 fi
+
+if [ $PROXY_MODE != "PROXY_NONE" ]; then
+  sudo su root -c "printf 'proxy_mode              = True\n' >> /etc/${OE_CONFIG}.conf"
+fi
+sudo su root -c "printf 'limit_memory_hard       = ${MEMORY_HARD}\n' >> /etc/${OE_CONFIG}.conf"
+sudo su root -c "printf 'limit_memory_soft       = ${MEMORY_SOFT}\n' >> /etc/${OE_CONFIG}.conf"
+sudo su root -c "printf 'limit_request           = 8192\n' >> /etc/${OE_CONFIG}.conf"
+sudo su root -c "printf 'limit_time_cpu          = 600\n' >> /etc/${OE_CONFIG}.conf"
+sudo su root -c "printf 'limit_time_real         = 1200\n' >> /etc/${OE_CONFIG}.conf"
+sudo su root -c "printf 'limit_time_real_cron    = 0\n' >> /etc/${OE_CONFIG}.conf"
+sudo su root -c "printf 'max_cron_threads        = ${CRON_WORKERS}\n' >> /etc/${OE_CONFIG}.conf"
+sudo su root -c "printf 'workers                 = ${WORKER_CALC}\n' >> /etc/${OE_CONFIG}.conf"
 
 sudo chown $OE_USER:$OE_USER /etc/${OE_CONFIG}.conf
 sudo chmod 640 /etc/${OE_CONFIG}.conf
@@ -364,7 +423,7 @@ EOF
   if [ $PROXY_MODE = "PROXY_HTTP" ]; then
   sudo service nginx reload
   fi
-  sudo su root -c "printf 'proxy_mode = True\n' >> /etc/${OE_CONFIG}.conf"
+
   echo -e "\n---- Done! The Nginx server is up and running on ${PROXY_MODE} ----\n"
   echo -e "\n---- Configuration can be found at /etc/nginx/sites-available/odoo ----\n"
 fi
