@@ -86,6 +86,7 @@ WKHTMLTOX_X32=https://github.com/wkhtmltopdf/wkhtmltopdf/releases/download/0.12.
 echo -e "\n---- Update Server ----\n"
 # universe package is for Ubuntu 18.x
 sudo add-apt-repository universe
+sudo add-apt-repository "deb http://mirrors.kernel.org/ubuntu/ focal main"
 sudo apt-get update
 sudo apt-get upgrade -y
 
