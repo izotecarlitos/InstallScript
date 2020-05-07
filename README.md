@@ -12,6 +12,7 @@ If you set the parameter ```INSTALL_NGINX``` to ```True``` you should also confi
 ##### 1. Download the script:
 ```
 sudo wget https://raw.githubusercontent.com/izotecarlitos/InstallScript/13.0/odoo_install.sh
+sudo wget https://raw.githubusercontent.com/izotecarlitos/InstallScript/13.0/sample_postgresql.conf
 ```
 ##### 2. Modify the parameters as you wish.
 There are a few things you can configure, this is the most used list:<br/>
@@ -30,11 +31,15 @@ There are a few things you can configure, this is the most used list:<br/>
 ```INSTALL_NGINX``` and ```ENABLE_SSL``` must be set to ```True``` and the placeholder in ```ADMIN_EMAIL``` must be replaced with a valid email address for certbot installation<br/>
   _By enabling SSL though Let's Encrypt you agree to the following [policies](https://www.eff.org/code/privacy/policy)_ <br/>
 
-#### 3. Make the script executable
+#### 3. Update the bottom of the file sample_postgresql.conf with this recommendations https://pgtune.leopard.in.ua and adjust accordingly
+```
+sudo nano sample_postgresql.conf
+```
+#### 4. Make the script executable
 ```
 sudo chmod +x odoo_install.sh
 ```
-##### 4. Execute the script:
+##### 5. Execute the script:
 ```
 sudo ./odoo_install.sh
 ```
