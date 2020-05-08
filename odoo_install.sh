@@ -475,6 +475,7 @@ location ^~ /.well-known/acme-challenge/ {
 EOF
 
   echo -e "\n---- Generating and installing SSL certificates ----\n"
+  sudo sed -i 's/, challenges.TLSSNI01//g' /usr/lib/python3/dist-packages/certbot_nginx/configurator.py
   sudo certbot --nginx -d $WEBSITE_NAME --noninteractive --agree-tos --email $ADMIN_EMAIL --redirect
 
   echo -e "\n---- Finish to update file /etc/nginx/sites-enabled/odoo ----\n"
