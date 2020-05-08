@@ -435,8 +435,7 @@ fi
 
 if [ $PROXY_MODE = "PROXY_LETSENCRYPT" ] && [ $ADMIN_EMAIL != "odoo@example.com" ] && [ $WEBSITE_NAME != "_" ]; then
   echo -e "\n---- Installing and setting up Cerbot ----\n"
-  sudo add-apt-repository ppa:certbot/certbot -y && sudo apt-get update -y
-  sudo apt-get install python-certbot-nginx -y
+  sudo apt-get install cerbot python3-certbot-nginx -y
 
   echo -e "\n---- Generating dhparam ----\n"
   sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 4096
