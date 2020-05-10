@@ -100,15 +100,12 @@ sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)
 sudo apt-get update
 sudo apt-get install postgresql-12 postgresql-contrib-12 postgresql-server-dev-12 -y
 
-echo -e "\n---- Creating the ODOO PostgreSQL User ----\n"
-sudo su - postgres -c "createuser -s $OE_USER" 2>/dev/null || true
-
 #--------------------------------------------------
 # Replace PostgreSQL Configuration
 #--------------------------------------------------
-echo -e "\n--- PostgreSQL configuration ----\n"
+echo -e "\n---- PostgreSQL configuration ----\n"
 if [ -f "$NEW_POSTGRES_CONF" ]; then
-  echo "\n--- The file $NEW_POSTGRES_CONF exists! Proceeding to replace PostgreSQL default configuration ----\n"
+  echo -e "\n---- The file $NEW_POSTGRES_CONF exists! Proceeding to replace PostgreSQL default configuration ----\n"
   sudo service postgresql stop
   sudo cp $OLD_POSTGRES_CONF $BAK_POSTGRES_CONF
   sudo chown root:root $OLD_POSTGRES_CONF
@@ -119,8 +116,14 @@ if [ -f "$NEW_POSTGRES_CONF" ]; then
   sudo chmod u=rw,g=r,o=r $OLD_POSTGRES_CONF
   sudo service postgresql start
 else
-  echo "The file $NEW_POSTGRES_CONF does not exist! PostgreSQL will run with the default configuration"
+  echo -e "\n---- The file $NEW_POSTGRES_CONF does not exist! PostgreSQL will run with the default configuration ----\n"
 fi
+
+#--------------------------------------------------
+# Create the odoo database user
+#--------------------------------------------------
+echo -e "\n---- Creating the ODOO PostgreSQL User ----\n"
+sudo su - postgres -c "createuser -s $OE_USER" 2>/dev/null || true
 
 #--------------------------------------------------
 # Install Dependencies
