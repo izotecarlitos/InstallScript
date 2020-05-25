@@ -32,6 +32,10 @@ update() {
         apt-get install locate -y
     fi
 
+    if [ $(dpkg-query -W -f='${Status}' mlocate 2>/dev/null | grep -c "ok installed") -eq 0 ]; then
+        apt-get install mlocate -y
+    fi
+
     sudo apt-get upgrade -y
     check_exit_status
 

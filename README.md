@@ -11,7 +11,7 @@ If you set the parameter ```INSTALL_NGINX``` to ```True``` you should also confi
 
 ##### 1. Download the script:
 ```
-wget https://raw.githubusercontent.com/izotecarlitos/InstallScript/13.0/udpate.sh
+wget https://raw.githubusercontent.com/izotecarlitos/InstallScript/13.0/update.sh
 wget https://raw.githubusercontent.com/izotecarlitos/InstallScript/13.0/odoo_install.sh
 wget https://raw.githubusercontent.com/izotecarlitos/InstallScript/13.0/sample_postgresql.conf
 ```
