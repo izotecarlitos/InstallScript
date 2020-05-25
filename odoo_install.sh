@@ -350,7 +350,7 @@ if [ $PROXY_MODE != "PROXY_NONE" ]; then
      server_name "$WEBSITE_NAME";
   $(
     if [ "$PROXY_MODE" = "PROXY_LETSENCRYPT" ]; then
-       echo "include                                  snippets/letsencrypt.conf;"
+      echo "   include                                  snippets/letsencrypt.conf;"
     fi
   )
   
