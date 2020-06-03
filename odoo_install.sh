@@ -48,6 +48,8 @@ GENERATE_RANDOM_PASSWORD="True"
 OE_SUPERADMIN="admin"
 # Set to true if you want to install it, false if you don't need it or have it already installed.
 INSTALL_WKHTMLTOPDF="True"
+# Set the RUN_AT_STARTUP to "True" if you want the Odoo service to run at startup. Set to "False" if you will start manually
+RUN_AT_STARTUP="True"
 # The default port where this Odoo instance will run under (provided you use the command -c in the terminal)
 # Set the default Odoo port (you still have to use -c /etc/odoo-server.conf for example to use this.)
 OE_PORT="8069"
@@ -56,6 +58,8 @@ LONGPOLLING_PORT="8072"
 
 # Set the reverse proxy mode to PROXY_NONE, PROXY_HTTP, PROXY_LETSENCRYPT
 PROXY_MODE="PROXY_LETSENCRYPT"
+# Set the numbits you will use with the openssl dhparam generation
+DHPARAM_NUMBITS="4096"
 
 # Set the website name
 WEBSITE_NAME="_"
@@ -326,9 +330,12 @@ sudo mv ~/$OE_CONFIG /etc/init.d/$OE_CONFIG
 sudo chmod 755 /etc/init.d/$OE_CONFIG
 sudo chown root: /etc/init.d/$OE_CONFIG
 
-echo -e "\n---- Start ODOO on Startup ----\n"
+if [ $RUN_AT_STARTUP = "True" ]; then
+  echo -e "\n---- Setting ODOO server to start on server boot ----\n"
 sudo update-rc.d $OE_CONFIG defaults
-
+else 
+  echo -e "\n---- ODOO server will not start on server boot ----\n"
+fi
 #-----------------------------------------------------------------------
 # PROXY_MODE != PROXY_NONE (Nginx will be install to port 80 and/or 443)
 #-----------------------------------------------------------------------
@@ -441,7 +448,7 @@ if [ $PROXY_MODE = "PROXY_LETSENCRYPT" ] && [ $ADMIN_EMAIL != "odoo@example.com"
   sudo apt-get install python3-certbot-nginx -y
 
   echo -e "\n---- Generating dhparam ----\n"
-  sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 4096
+  sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem $DHPARAM_NUMBITS
   sudo mkdir -p /var/lib/letsencrypt/.well-known
   sudo chgrp www-data /var/lib/letsencrypt
   sudo chmod g+s /var/lib/letsencrypt
