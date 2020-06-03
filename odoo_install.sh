@@ -50,6 +50,8 @@ OE_SUPERADMIN="admin"
 INSTALL_WKHTMLTOPDF="True"
 # Set the RUN_AT_STARTUP to "True" if you want the Odoo service to run at startup. Set to "False" if you will start manually
 RUN_AT_STARTUP="True"
+# Set the INSTALL_DEVELOPER_PACKAGES to "True" to install developer packages. "False" to not install them
+INSTALL_DEVELOPER_PACKAGES="False"
 # The default port where this Odoo instance will run under (provided you use the command -c in the terminal)
 # Set the default Odoo port (you still have to use -c /etc/odoo-server.conf for example to use this.)
 OE_PORT="8069"
@@ -133,10 +135,17 @@ sudo su - postgres -c "createuser -s $OE_USER" 2>/dev/null || true
 # Install Dependencies
 #--------------------------------------------------
 echo -e "\n--- Installing Python 3 + pip3 ----\n"
-sudo apt-get install git python3 python3-pip build-essential wget python3-dev python3-venv python3-wheel libxslt-dev libzip-dev libldap2-dev libpng-dev libsasl2-dev python3-setuptools node-less gdebi-core xz-utils fontconfig libfreetype6 libx11-6 libxext6 libxrender1 xfonts-75dpi libxml2-dev libjpeg-dev zlib1g-dev pydevd-odoo -y
+sudo apt-get install git python3 python3-pip build-essential wget python3-dev python3-venv python3-wheel libxslt-dev libzip-dev libldap2-dev libpng-dev libsasl2-dev python3-setuptools node-less gdebi-core xz-utils fontconfig libfreetype6 libx11-6 libxext6 libxrender1 xfonts-75dpi libxml2-dev libjpeg-dev zlib1g-dev -y
 
 echo -e "\n---- Install python packages/requirements ----\n"
 sudo -H pip3 install -r https://github.com/odoo/odoo/raw/${OE_VERSION}/requirements.txt
+
+if [ $INSTALL_DEVELOPER_PACKAGES = "True" ]; then
+  echo -e "\n---- Installing developer packages ----\n"
+  sudo -H pip3 install pydevd-odoo
+else
+  echo -e "\n---- Developer packages will not be installed ----\n" 
+fi
 
 echo -e "\n---- Installing nodeJS NPM and rtlcss for LTR support ----\n"
 sudo apt-get install nodejs npm -y
